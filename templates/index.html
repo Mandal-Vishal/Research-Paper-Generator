@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Research Paper Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --border-color: #e2e8f0;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); display: flex; min-height: 100vh; }
+        
+        .sidebar { width: 320px; background: var(--card-bg); border-right: 1px solid var(--border-color); padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; position: fixed; height: 100vh; overflow-y: auto; }
+        .main-content { margin-left: 320px; flex: 1; padding: 2.5rem; max-width: 1200px; width: calc(100% - 320px); }
+        
+        h1, h2, h3, h4, h5 { font-weight: 600; color: var(--text-main); }
+        h1 { font-size: 2.2rem; margin-bottom: 0.2rem; }
+        .sidebar h2 { font-size: 1.25rem; margin-bottom: 0.5rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
+        
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem; }
+        .metric-card { background: var(--bg-color); padding: 1rem; border-radius: 8px; text-align: center; border: 1px solid var(--border-color); }
+        .metric-card div { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+        .metric-card span { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+        
+        .progress-container { margin-top: 1rem; }
+        .progress-bar-bg { background: var(--border-color); height: 8px; border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+        .progress-bar-fill { background: var(--success); height: 100%; width: 0%; transition: width 0.4s ease; }
+        
+        .tabs-header { display: flex; flex-wrap: wrap; gap: 0.5rem; border-bottom: 1px solid var(--border-color); margin-bottom: 2rem; padding-bottom: 0.5rem; }
+        .tab-btn { background: none; border: none; padding: 0.6rem 1.2rem; font-size: 0.9rem; font-weight: 500; color: var(--text-muted); cursor: pointer; border-radius: 6px; transition: all 0.2s; }
+        .tab-btn:hover { background: var(--border-color); color: var(--text-main); }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.2rem; }
+        @media(max-width: 768px) { .form-row { grid-template-columns: 1fr; } }
+        
+        .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+        label { font-size: 0.85rem; font-weight: 500; color: var(--text-main); }
+        input, select, textarea { padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem; width: 100%; background: #fff; color: var(--text-main); outline: none; }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
+        
+        .btn { background: var(--primary); color: white; border: none; padding: 0.7rem 1.4rem; font-size: 0.9rem; font-weight: 500; border-radius: 6px; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; text-decoration: none;}
+        .btn:hover { background: var(--primary-hover); }
+        .btn:disabled { background: var(--text-muted); cursor: not-allowed; }
+        .btn-secondary { background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn-secondary:hover { background: #e2e8f0; }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-block { width: 100%; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { background: var(--bg-color); color: var(--text-main); font-weight: 600; }
+        
+        .accordion { border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
+        .accordion-header { background: var(--bg-color); padding: 1rem; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
+        .accordion-body { padding: 1.2rem; background: #fff; display: none; border-top: 1px solid var(--border-color); font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap; }
+        
+        .loading { display: none; font-size: 0.85rem; color: var(--primary); font-weight: 500; margin-top: 0.5rem; align-items: center; gap: 0.5rem; }
+        .loading::before { content: ""; width: 16px; height: 16px; border: 2px solid var(--border-color); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; margin-bottom: 1rem; font-size: 0.85rem; display: none; }
+        .alert-success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+        .alert-warn { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+        .alert-info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div>
+            <h2>⚙️ Configuration</h2>
+            {% if api_key_set %}
+            <div class="alert alert-success" style="display:block; padding:0.5rem; margin-top:0.5rem;">✅ API key configured in ENV</div>
+            {% else %}
+            <div class="alert alert-warn" style="display:block; padding:0.5rem; margin-top:0.5rem;">⚠️ Missing GEMINI_API_KEY config</div>
+            {% endif %}
+        </div>
+        
+        <div>
+            <h2>📊 Project Status</h2>
+            <p style="font-size: 0.85rem; margin-top: 0.5rem;"><strong>Title:</strong> <span id="side-title">_Not set_</span></p>
+            <p style="font-size: 0.85rem; margin-bottom: 0.5rem;"><strong>Citation style:</strong> <span id="side-style">IEEE</span></p>
+            
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div id="metric-papers">0</div>
+                    <span>Papers</span>
+                </div>
+                <div class="metric-card">
+                    <div id="metric-refs">0</div>
+                    <span>References</span>
+                </div>
+            </div>
+            
+            <div class="progress-container">
+                <span style="font-size: 0.8rem; font-weight: 500;" id="progress-text">0/11 stages complete</span>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+        
+        <button class="btn btn-danger btn-block" onclick="clearProject()">🗑️ Clear Project</button>
+    </div>
+
+    <div class="main-content">
+        <h1>📄 AI Research Paper Assistant</h1>
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem;">A guided, multi-stage pipeline for writing your first research paper without hallucinated content.</p>
+        
+        <div id="global-alert" class="alert"></div>
+
+        <div class="tabs-header">
+            <button class="tab-btn active" onclick="switchTab(0)">1. Project Setup</button>
+            <button class="tab-btn" onclick="switchTab(1)">2. Literature Upload</button>
+            <button class="tab-btn" onclick="switchTab(2)">3. Literature Matrix</button>
+            <button class="tab-btn" onclick="switchTab(3)">4. Research Gap</button>
+            <button class="tab-btn" onclick="switchTab(4)">5. Methodology Builder</button>
+            <button class="tab-btn" onclick="switchTab(5)">6. Paper Sections</button>
+            <button class="tab-btn" onclick="switchTab(6)">7. References</button>
+            <button class="tab-btn" onclick="switchTab(7)">8. Export</button>
+        </div>
+
+        <!-- 1. PROJECT SETUP -->
+        <div id="tab-0" class="tab-content active">
+            <div class="card">
+                <h3 style="margin-bottom: 1.2rem;">Project Setup</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Paper Title</label>
+                        <input type="text" id="setup-title">
+                    </div>
+                    <div class="form-group">
+                        <label>Target Journal / Conference</label>
+                        <input type="text" id="setup-journal">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Authors</label>
+                        <input type="text" id="setup-authors">
+                    </div>
+                    <div class="form-group">
+                        <label>Citation Style</label>
+                        <select id="setup-style">
+                            <option value="IEEE">IEEE</option>
+                            <option value="APA">APA</option>
+                            <option value="Chicago">Chicago</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Affiliations</label>
+                        <input type="text" id="setup-affiliations">
+                    </div>
+                    <div class="form-group">
+                        <label>Desired Page Count</label>
+                        <input type="number" id="setup-page-count" value="6">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Keywords (comma separated)</label>
+                        <input type="text" id="setup-keywords">
+                    </div>
+                    <div class="form-group">
+                        <label>Desired Word Count</label>
+                        <input type="number" id="setup-word-count" value="3000" step="100">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 1.2rem;">
+                    <label>Research Objectives (used in Introduction & Conclusion)</label>
+                    <textarea id="setup-objectives" rows="3"></textarea>
+                </div>
+                <button class="btn" onclick="saveProjectSetup()">💾 Save Project Info</button>
+            </div>
+        </div>
+
+        <!-- 2. LITERATURE UPLOAD -->
+        <div id="tab-1" class="tab-content">
+            <div class="card">
+                <h3 style="margin-bottom: 1rem;">Literature Upload</h3>
+                <div class="form-group" style="margin-bottom: 1.2rem;">
+                    <label>Upload PDF papers</label>
+                    <input type="file" id="lit-files" multiple accept=".pdf">
+                </div>
+                <button class="btn btn-secondary" onclick="uploadPapers()">Upload Papers</button>
+                <div id="loading-upload" class="loading">Extracting PDF texts...</div>
+                
+                <h5 style="margin-top: 1.5rem; margin-bottom: 0.5rem; display:none;" id="extracted-heading">Extracted Papers</h5>
+                <div id="extracted-papers-list"></div>
+                
+                <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border-color);">
+                
+                <h5 style="margin-bottom: 1rem;">Additional Reference Sources</h5>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Reference URL</label>
+                        <input type="text" id="lit-ref-url">
+                        <button class="btn btn-secondary" style="margin-top:0.5rem;" onclick="addReference('url')">Add URL Reference</button>
+                    </div>
+                    <div class="form-group">
+                        <label>DOI Input</label>
+                        <input type="text" id="lit-ref-doi">
+                        <button class="btn btn-secondary" style="margin-top:0.5rem;" onclick="addReference('doi')">Add DOI Reference</button>
+                    </div>
+                </div>
+                <div id="loading-ref" class="loading">Resolving reference...</div>
+                
+                <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border-color);">
+                
+                <button class="btn btn-block" onclick="analyzeLiterature()" id="btn-analyze">🔍 Analyze Literature</button>
+                <div id="loading-analysis" class="loading">Analyzing literature with Gemini (this may take up to 60s)...</div>
+            </div>
+        </div>
+
+        <!-- 3. LITERATURE MATRIX -->
+        <div id="tab-2" class="tab-content">
+            <div class="card">
+                <h3>Literature Matrix</h3>
+                <div style="overflow-x: auto;" id="matrix-wrapper">
+                    <p style="color: var(--text-muted); margin-top: 1rem;">No analyzed papers yet. Upload papers and click 'Analyze Literature'.</p>
+                </div>
+                <a href="/download/csv" class="btn btn-secondary" style="margin-top:1rem; display:none;" id="btn-download-csv">⬇️ Download CSV</a>
+            </div>
+        </div>
+
+        <!-- 4. RESEARCH GAP -->
+        <div id="tab-3" class="tab-content">
+            <div class="card">
+                <h3>Research Gap Analysis</h3>
+                <button class="btn" onclick="generateResearchGap()">🧩 Generate Research Gap</button>
+                <div id="loading-gap" class="loading">Synthesizing gaps...</div>
+                
+                <div class="form-row" style="margin-top: 1.5rem;">
+                    <div>
+                        <h4>Research Gaps</h4>
+                        <ul id="gap-list" style="margin-left:1.2rem; margin-top:0.5rem; font-size:0.9rem; color:var(--text-muted);"></ul>
+                    </div>
+                    <div>
+                        <h4>Future Work</h4>
+                        <ul id="future-list" style="margin-left:1.2rem; margin-top:0.5rem; font-size:0.9rem; color:var(--text-muted);"></ul>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem;">
+                    <h4>Potential Contributions</h4>
+                    <ul id="contrib-list" style="margin-left:1.2rem; margin-top:0.5rem; font-size:0.9rem; color:var(--text-muted);"></ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. METHODOLOGY BUILDER -->
+        <div id="tab-4" class="tab-content">
+            <div class="card">
+                <h3>Methodology Builder</h3>
+                <div class="form-row" style="margin-top:1rem;">
+                    <div class="form-group">
+                        <label>Research Problem</label>
+                        <textarea id="meth-problem" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Hardware</label>
+                        <input type="text" id="meth-hardware">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Dataset</label>
+                        <input type="text" id="meth-dataset">
+                    </div>
+                    <div class="form-group">
+                        <label>Evaluation Metrics</label>
+                        <input type="text" id="meth-metrics">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Algorithm</label>
+                        <input type="text" id="meth-algorithm">
+                    </div>
+                    <div class="form-group">
+                        <label>Experimental Steps</label>
+                        <textarea id="meth-steps" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tools</label>
+                        <input type="text" id="meth-tools">
+                    </div>
+                    <div class="form-group">
+                        <label>Expected Outcomes</label>
+                        <textarea id="meth-outcomes" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Programming Language</label>
+                        <input type="text" id="meth-lang">
+                    </div>
+                </div>
+                <button class="btn" style="margin-top:1rem;" onclick="generateMethodology()">⚗️ Generate Methodology</button>
+                <div id="loading-methodology" class="loading">Drafting methodology section...</div>
+                
+                <div id="methodology-output-box" class="card" style="margin-top:1.5rem; display:none; background:var(--bg-color);">
+                    <p id="methodology-text" style="font-size:0.95rem; white-space:pre-wrap; margin-top:0.5rem;"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. PAPER SECTIONS -->
+        <div id="tab-5" class="tab-content">
+            <div class="card">
+                <h3 style="margin-bottom:1.5rem;">Paper Sections</h3>
+                
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">1. Introduction <span>▼</span></div>
+                    <div class="accordion-body" style="display:block;">
+                        <button class="btn btn-secondary" onclick="generateSection('introduction')">✍️ Generate Introduction</button>
+                        <div class="loading" id="load-sec-introduction">Writing introduction...</div>
+                        <div style="margin-top:1rem;" id="text-sec-introduction"></div>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">2. Literature Review <span>▶</span></div>
+                    <div class="accordion-body">
+                        <button class="btn btn-secondary" onclick="generateSection('literature_review')">✍️ Generate Literature Review</button>
+                        <div class="loading" id="load-sec-literature_review">Writing literature review...</div>
+                        <div style="margin-top:1rem;" id="text-sec-literature_review"></div>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">3. Methodology <span>▶</span></div>
+                    <div class="accordion-body">
+                        <div id="text-sec-methodology" style="color:var(--text-muted);"><em>Generate methodology in the Methodology Builder tab.</em></div>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">4. Results & Discussion <span>▶</span></div>
+                    <div class="accordion-body">
+                        <div class="form-group" style="margin-bottom:1rem;">
+                            <label>Tables (markdown or plain text)</label>
+                            <textarea id="res-tables" rows="3"></textarea>
+                        </div>
+                        <div class="form-group" style="margin-bottom:1rem;">
+                            <label>Metrics</label>
+                            <textarea id="res-metrics" rows="2"></textarea>
+                        </div>
+                        <div class="form-group" style="margin-bottom:1rem;">
+                            <label>Observations</label>
+                            <textarea id="res-obs" rows="3"></textarea>
+                        </div>
+                        <div class="form-group" style="margin-bottom:1rem;">
+                            <label>Result Images (optional - included in DOCX/ZIP)</label>
+                            <input type="file" id="res-images" multiple accept=".png,.jpg,.jpeg">
+                        </div>
+                        <button class="btn btn-secondary" onclick="generateResultsSection()">✍️ Generate Results Discussion</button>
+                        <div class="loading" id="load-sec-results">Writing results & discussion...</div>
+                        <div style="margin-top:1rem;" id="text-sec-results"></div>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">5. Conclusion <span>▶</span></div>
+                    <div class="accordion-body">
+                        <button class="btn btn-secondary" onclick="generateSection('conclusion')">✍️ Generate Conclusion</button>
+                        <div class="loading" id="load-sec-conclusion">Writing conclusion...</div>
+                        <div style="margin-top:1rem;" id="text-sec-conclusion"></div>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">6. Abstract <span>▶</span></div>
+                    <div class="accordion-body">
+                        <button class="btn btn-secondary" onclick="generateSection('abstract')">✍️ Generate Abstract</button>
+                        <div class="loading" id="load-sec-abstract">Writing abstract...</div>
+                        <div style="margin-top:1rem;" id="text-sec-abstract"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 7. REFERENCES -->
+        <div id="tab-6" class="tab-content">
+            <div class="card">
+                <h3>Reference Manager</h3>
+                <div class="tabs-header" style="margin-top:1rem; margin-bottom:1rem; border-bottom:none;">
+                    <button class="tab-btn active" id="sub-btn-0" onclick="switchSubTab(0)" style="border:1px solid var(--border-color);">DOI</button>
+                    <button class="tab-btn" id="sub-btn-1" onclick="switchSubTab(1)" style="border:1px solid var(--border-color);">URL</button>
+                    <button class="tab-btn" id="sub-btn-2" onclick="switchSubTab(2)" style="border:1px solid var(--border-color);">Manual Entry</button>
+                    <button class="tab-btn" id="sub-btn-3" onclick="switchSubTab(3)" style="border:1px solid var(--border-color);">Import .bib</button>
+                </div>
+
+                <div id="sub-tab-0" class="sub-tab-content card" style="background:var(--bg-color); box-shadow:none;">
+                    <div class="form-group">
+                        <label>DOI</label>
+                        <input type="text" id="ref-doi-val">
+                        <button class="btn btn-secondary" style="margin-top:0.5rem; width:max-content;" onclick="submitReferenceForm('doi')">Add via DOI</button>
+                    </div>
+                </div>
+                <div id="sub-tab-1" class="sub-tab-content card" style="display:none; background:var(--bg-color); box-shadow:none;">
+                    <div class="form-row">
+                        <div class="form-group"><label>URL</label><input type="text" id="ref-url-val"></div>
+                        <div class="form-group"><label>Title (optional)</label><input type="text" id="ref-url-title"></div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="submitReferenceForm('url')">Add via URL</button>
+                </div>
+                <div id="sub-tab-2" class="sub-tab-content card" style="display:none; background:var(--bg-color); box-shadow:none;">
+                    <div class="form-row">
+                        <div class="form-group"><label>Authors</label><input type="text" id="m-authors"></div>
+                        <div class="form-group"><label>Volume</label><input type="text" id="m-volume"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Title</label><input type="text" id="m-title"></div>
+                        <div class="form-group"><label>Issue</label><input type="text" id="m-issue"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Journal / Conference</label><input type="text" id="m-source"></div>
+                        <div class="form-group"><label>Pages</label><input type="text" id="m-pages"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Year</label><input type="text" id="m-year"></div>
+                        <div class="form-group"><label>Publisher</label><input type="text" id="m-publisher"></div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="submitReferenceForm('manual')">Add Manual Reference</button>
+                </div>
+                <div id="sub-tab-3" class="sub-tab-content card" style="display:none; background:var(--bg-color); box-shadow:none;">
+                    <div class="form-group">
+                        <label>Paste Raw BibTeX String Content</label>
+                        <textarea id="ref-bibtex-val" rows="5"></textarea>
+                    </div>
+                    <button class="btn btn-secondary" style="margin-top:0.5rem;" onclick="submitReferenceForm('bibtex')">Import Entries</button>
+                </div>
+
+                <h5 style="margin-top:2rem; margin-bottom:0.5rem;">Formatted References</h5>
+                <div style="margin-bottom:1rem;">
+                    <label style="margin-right:1rem; font-size:0.85rem;"><input type="radio" name="ref_style" value="APA" onchange="renderReferencesList()"> APA</label>
+                    <label style="margin-right:1rem; font-size:0.85rem;"><input type="radio" name="ref_style" value="IEEE" checked onchange="renderReferencesList()"> IEEE</label>
+                    <label style="margin-right:1rem; font-size:0.85rem;"><input type="radio" name="ref_style" value="Chicago" onchange="renderReferencesList()"> Chicago</label>
+                    <label style="font-size:0.85rem;"><input type="radio" name="ref_style" value="BibTeX" onchange="renderReferencesList()"> BibTeX</label>
+                </div>
+                <div id="reference-list-box"></div>
+            </div>
+        </div>
+
+        <!-- 8. EXPORT -->
+        <div id="tab-7" class="tab-content">
+            <div class="card">
+                <h3>Export Paper</h3>
+                
+                <div class="card" style="background:var(--bg-color); max-height:500px; overflow-y:auto; font-size:0.9rem; margin-top:1rem;" id="preview-frame">
+                </div>
+                
+                <div class="form-row" style="margin-top:1.5rem;">
+                    <a href="/download/docx" class="btn btn-block" style="text-decoration:none;">📝 Build DOCX</a>
+                    <a href="/download/latex" class="btn btn-block" style="text-decoration:none;">📦 Build LaTeX ZIP</a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let currentState = {};
+        let formattedRefs = {};
+
+        function showAlert(msg, type="success") {
+            const el = document.getElementById('global-alert');
+            el.className = `alert alert-${type}`;
+            el.innerText = msg;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 4000);
+        }
+
+        function switchTab(idx) {
+            document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+            document.querySelectorAll('.tab-content').forEach((c, i) => c.classList.toggle('active', i === idx));
+        }
+
+        function switchSubTab(idx) {
+            document.querySelectorAll('[id^="sub-btn-"]').forEach((b, i) => {
+                b.classList.toggle('active', i === idx);
+                b.style.background = i === idx ? 'var(--primary)' : 'none';
+                b.style.color = i === idx ? 'white' : 'var(--text-muted)';
+            });
+            document.querySelectorAll('.sub-tab-content').forEach((c, i) => c.style.display = (i === idx) ? 'block' : 'none');
+        }
+
+        function toggleAccordion(header) {
+            const body = header.nextElementSibling;
+            const span = header.querySelector('span');
+            if(body.style.display === 'block') {
+                body.style.display = 'none';
+                span.innerText = '▶';
+            } else {
+                body.style.display = 'block';
+                span.innerText = '▼';
+            }
+        }
+
+        async function fetchState() {
+            try {
+                const res = await fetch('/api/state');
+                const data = await res.json();
+                currentState = data.state;
+                formattedRefs = data.formatted_refs;
+                
+                document.getElementById('side-title').innerText = currentState.project_info.title || '_Not set_';
+                document.getElementById('side-style').innerText = currentState.project_info.citation_style || 'IEEE';
+                document.getElementById('metric-papers').innerText = currentState.papers.length;
+                document.getElementById('metric-refs').innerText = currentState.references.length;
+                
+                document.getElementById('progress-text').innerText = `${data.progress.completed}/${data.progress.total} stages complete`;
+                document.getElementById('progress-fill').style.width = `${(data.progress.completed / data.progress.total) * 100}%`;
+                
+                syncForms();
+                renderPapersList();
+                renderMatrix();
+                renderGapView();
+                renderReferencesList();
+                renderPreview();
+            } catch (err) {
+                console.error("State sync failed", err);
+            }
+        }
+
+        function syncForms() {
+            const pi = currentState.project_info || {};
+            document.getElementById('setup-title').value = pi.title || '';
+            document.getElementById('setup-journal').value = pi.target_journal || '';
+            document.getElementById('setup-authors').value = pi.authors || '';
+            document.getElementById('setup-style').value = pi.citation_style || 'IEEE';
+            document.getElementById('setup-affiliations').value = pi.affiliations || '';
+            document.getElementById('setup-page-count').value = pi.page_count || 6;
+            document.getElementById('setup-keywords').value = pi.keywords || '';
+            document.getElementById('setup-word-count').value = pi.word_count || 3000;
+            document.getElementById('setup-objectives').value = currentState.objectives || '';
+
+            const mi = currentState.methodology_inputs || {};
+            document.getElementById('meth-problem').value = mi.research_problem || '';
+            document.getElementById('meth-hardware').value = mi.hardware || '';
+            document.getElementById('meth-dataset').value = mi.dataset || '';
+            document.getElementById('meth-metrics').value = mi.evaluation_metrics || '';
+            document.getElementById('meth-algorithm').value = mi.algorithm || '';
+            document.getElementById('meth-steps').value = mi.experimental_steps || '';
+            document.getElementById('meth-tools').value = mi.tools || '';
+            document.getElementById('meth-outcomes').value = mi.expected_outcomes || '';
+            document.getElementById('meth-lang').value = mi.programming_language || '';
+
+            const ri = currentState.results_inputs || {};
+            document.getElementById('res-tables').value = ri.tables || '';
+            document.getElementById('res-metrics').value = ri.metrics || '';
+            document.getElementById('res-obs').value = ri.observations || '';
+
+            const sec = currentState.sections || {};
+            document.getElementById('text-sec-introduction').innerText = sec.introduction || '';
+            document.getElementById('text-sec-literature_review').innerText = sec.literature_review || '';
+            document.getElementById('text-sec-methodology').innerText = sec.methodology || 'Generate methodology in the Methodology Builder tab.';
+            document.getElementById('text-sec-results').innerText = sec.results || '';
+            document.getElementById('text-sec-conclusion').innerText = sec.conclusion || '';
+            document.getElementById('text-sec-abstract').innerText = sec.abstract || '';
+            
+            if(currentState.methodology) {
+                document.getElementById('methodology-output-box').style.display = 'block';
+                document.getElementById('methodology-text').innerText = currentState.methodology;
+            }
+        }
+
+        async function clearProject() {
+            if(!confirm("Are you sure you want to clear all project data?")) return;
+            await fetch('/api/clear', {method: 'POST'});
+            location.reload();
+        }
+
+        async function saveProjectSetup() {
+            const payload = {
+                title: document.getElementById('setup-title').value,
+                target_journal: document.getElementById('setup-journal').value,
+                authors: document.getElementById('setup-authors').value,
+                citation_style: document.getElementById('setup-style').value,
+                affiliations: document.getElementById('setup-affiliations').value,
+                page_count: document.getElementById('setup-page-count').value,
+                keywords: document.getElementById('setup-keywords').value,
+                word_count: document.getElementById('setup-word-count').value,
+                objectives: document.getElementById('setup-objectives').value
+            };
+            const res = await fetch('/api/save_project', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if(data.status === 'success') {
+                showAlert("Project setup saved successfully.");
+                fetchState();
+            }
+        }
+
+        async function uploadPapers() {
+            const input = document.getElementById('lit-files');
+            if(!input.files.length) return;
+            
+            document.getElementById('loading-upload').style.display = 'flex';
+            const formData = new FormData();
+            for(let file of input.files) { formData.append('files', file); }
+            
+            const res = await fetch('/api/upload_paper', { method: 'POST', body: formData });
+            const data = await res.json();
+            document.getElementById('loading-upload').style.display = 'none';
+            input.value = '';
+            
+            if (data.status === 'success') {
+                showAlert(`Processed ${data.added} files. ${data.errors.length ? 'Some errors occurred.' : ''}`);
+            } else {
+                showAlert(data.message, 'error');
+            }
+            fetchState();
+        }
+
+        function renderPapersList() {
+            const container = document.getElementById('extracted-papers-list');
+            document.getElementById('extracted-heading').style.display = currentState.papers.length ? 'block' : 'none';
+            document.getElementById('btn-analyze').disabled = currentState.papers.length === 0;
+            
+            container.innerHTML = '';
+            currentState.papers.forEach((p, idx) => {
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.style.padding = '1rem';
+                div.style.marginBottom = '1rem';
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:start;">
+                        <div>
+                            <div style="font-weight:600; font-size:0.95rem;">${p.title}</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">Authors: ${p.authors}</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">${p.analysis ? '✅ Analyzed' : '⏳ Pending analysis'}</div>
+                            <details style="font-size:0.85rem; margin-top:0.5rem; color:var(--text-muted);">
+                                <summary style="cursor:pointer;">Abstract & Keywords</summary>
+                                <p style="margin-top:0.5rem;">${p.abstract}</p>
+                                <p style="margin-top:0.5rem; font-style:italic;">Keywords: ${p.keywords}</p>
+                            </details>
+                        </div>
+                        <button class="btn btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.8rem;" onclick="removePaper(${idx})">Remove</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function removePaper(idx) {
+            await fetch('/api/remove_paper', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({index: idx})
+            });
+            fetchState();
+        }
+
+        async function addReference(type) {
+            document.getElementById('loading-ref').style.display = 'flex';
+            let payload = { type: type };
+            if(type === 'url') {
+                payload.url = document.getElementById('lit-ref-url').value;
+            } else if(type === 'doi') {
+                payload.doi = document.getElementById('lit-ref-doi').value;
+            }
+            const res = await fetch('/api/add_reference', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            document.getElementById('loading-ref').style.display = 'none';
+            
+            if(data.status === 'success') {
+                showAlert(data.message || "Reference added.");
+                document.getElementById('lit-ref-url').value = '';
+                document.getElementById('lit-ref-doi').value = '';
+            } else if(data.status === 'warn') {
+                showAlert(data.message, 'warn');
+            } else {
+                showAlert(data.message, 'error');
+            }
+            fetchState();
+        }
+
+        async function analyzeLiterature() {
+            document.getElementById('loading-analysis').style.display = 'flex';
+            const res = await fetch('/api/analyze_literature', {method: 'POST'});
+            const data = await res.json();
+            document.getElementById('loading-analysis').style.display = 'none';
+            
+            if (data.status === 'success') {
+                showAlert("Literature analysis complete.");
+            } else {
+                showAlert(data.message, 'error');
+            }
+            fetchState();
+        }
+
+        function renderMatrix() {
+            const wrapper = document.getElementById('matrix-wrapper');
+            let hasData = false;
+            let html = `<table><tr><th>Paper</th><th>Objective</th><th>Method</th><th>Dataset</th><th>Findings</th><th>Limitations</th></tr>`;
+            
+            currentState.papers.forEach(p => {
+                if(p.analysis) {
+                    hasData = true;
+                    html += `<tr>
+                        <td><strong>${p.title}</strong></td>
+                        <td>${p.analysis.objective}</td>
+                        <td>${p.analysis.methodology}</td>
+                        <td>${p.analysis.dataset}</td>
+                        <td>${p.analysis.findings}</td>
+                        <td>${p.analysis.limitations}</td>
+                    </tr>`;
+                }
+            });
+            html += `</table>`;
+            wrapper.innerHTML = hasData ? html : `<p style="color:var(--text-muted); margin-top:1rem;">No analyzed paper metrics present.</p>`;
+            document.getElementById('btn-download-csv').style.display = hasData ? 'inline-flex' : 'none';
+        }
+
+        async function generateResearchGap() {
+            document.getElementById('loading-gap').style.display = 'flex';
+            const res = await fetch('/api/generate_gap', {method:'POST'});
+            const data = await res.json();
+            document.getElementById('loading-gap').style.display = 'none';
+            if(data.status === 'success') {
+                showAlert("Research gap generated.");
+            } else {
+                showAlert(data.message, 'error');
+            }
+            fetchState();
+        }
+
+        function renderGapView() {
+            const gap = currentState.research_gap || {};
+            document.getElementById('gap-list').innerHTML = (gap.research_gaps || []).map(i => `<li>${i}</li>`).join('') || 'None';
+            document.getElementById('future-list').innerHTML = (gap.future_work || []).map(i => `<li>${i}</li>`).join('') || 'None';
+            document.getElementById('contrib-list').innerHTML = (gap.potential_contributions || []).map(i => `<li>${i}</li>`).join('') || 'None';
+        }
+
+        async function generateMethodology() {
+            const payload = {
+                research_problem: document.getElementById('meth-problem').value,
+                dataset: document.getElementById('meth-dataset').value,
+                algorithm: document.getElementById('meth-algorithm').value,
+                tools: document.getElementById('meth-tools').value,
+                programming_language: document.getElementById('meth-lang').value,
+                hardware: document.getElementById('meth-hardware').value,
+                evaluation_metrics: document.getElementById('meth-metrics').value,
+                experimental_steps: document.getElementById('meth-steps').value,
+                expected_outcomes: document.getElementById('meth-outcomes').value
+            };
+            document.getElementById('loading-methodology').style.display = 'flex';
+            const res = await fetch('/api/generate_methodology', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            document.getElementById('loading-methodology').style.display = 'none';
+            
+            if(data.status === 'success') {
+                showAlert("Methodology generated.");
+            } else {
+                showAlert(data.message, 'error');
+            }
+            fetchState();
+        }
+
+        async function generateSection(secName) {
+            const loader = document.getElementById(`load-sec-${secName}`);
+            loader.style.display = 'flex';
+            
+            const res = await fetch('/api/generate_section', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ section: secName })
+            });
+            const data = await res.json();
+            loader.style.display = 'none';
+            
+            if(data.status === 'success') {
+                showAlert(`${secName.replace('_', ' ')} generated successfully.`);
+            } else {
+                showAlert(data.message, 'error');
+            }
+            fetchState();
+        }
+
+        async function generateResultsSection() {
+            const loader = document.getElementById(`load-sec-results`);
+            loader.style.display = 'flex';
+            
+            const formData = new FormData();
+            formData.append("section", "results");
+            formData.append("tables", document.getElementById('res-tables').value);
+            formData.append("metrics", document.getElementById('res-metrics').value);
+            formData.append("observations", document.getElementById('res-obs').value);
+            
+            const imgInput = document.getElementById('res-images');
+            for(let f of imgInput.files) {
+                formData.append("images", f);
+            }
+            
+            const res = await fetch('/api/generate_section', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            loader.style.display = 'none';
+            
+            if(data.status === 'success') {
+                showAlert("Results & Discussion generated successfully.");
+            } else {
+                showAlert(data.message, 'error');
+            }
+            fetchState();
+        }
+
+        async function submitReferenceForm(type) {
+            let payload = { type: type };
+            if(type === 'doi') payload.doi = document.getElementById('ref-doi-val').value;
+            if(type === 'url') {
+                payload.url = document.getElementById('ref-url-val').value;
+                payload.title = document.getElementById('ref-url-title').value;
+            }
+            if(type === 'manual') {
+                payload.authors = document.getElementById('m-authors').value;
+                payload.title = document.getElementById('m-title').value;
+                payload.source = document.getElementById('m-source').value;
+                payload.year = document.getElementById('m-year').value;
+                payload.volume = document.getElementById('m-volume').value;
+                payload.issue = document.getElementById('m-issue').value;
+                payload.pages = document.getElementById('m-pages').value;
+                payload.publisher = document.getElementById('m-publisher').value;
+                if(!payload.title) return showAlert("Title is required for manual entry.", "error");
+            }
+            if(type === 'bibtex') payload.bibtex = document.getElementById('ref-bibtex-val').value;
+            
+            const res = await fetch('/api/add_reference', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            if(data.status === 'success') {
+                showAlert(data.message || "Reference added.");
+            } else {
+                showAlert(data.message, 'error');
+            }
+            fetchState();
+        }
+
+        function renderReferencesList() {
+            const container = document.getElementById('reference-list-box');
+            container.innerHTML = '';
+            
+            if(!currentState.references || currentState.references.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No references added yet.</p>';
+                return;
+            }
+
+            const style = document.querySelector('input[name="ref_style"]:checked').value;
+            const refStrings = formattedRefs[style] || [];
+            
+            currentState.references.forEach((r, idx) => {
+                const str = refStrings[idx] || '';
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.style.padding = '1rem';
+                div.style.marginBottom = '0.5rem';
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
+                        <div style="flex:1; font-size:0.85rem; font-family: ${style === 'BibTeX' ? 'monospace' : 'inherit'}; white-space: ${style === 'BibTeX' ? 'pre-wrap' : 'normal'};">
+                            ${style === 'BibTeX' ? str : `<strong>[${idx+1}]</strong> ${str}`}
+                        </div>
+                        <button class="btn btn-secondary" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="removeReference(${idx})">Remove</button>
+                    </div>
+                    ${r.warning ? `<div style="color:var(--warning); font-size:0.8rem; margin-top:0.5rem; display:flex; gap:0.3rem;"><span style="font-size:1rem;">⚠️</span> ${r.warning}</div>` : ''}
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function removeReference(idx) {
+            await fetch('/api/remove_reference', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({index: idx})
+            });
+            fetchState();
+        }
+
+        function renderPreview() {
+            const p = document.getElementById('preview-frame');
+            const pi = currentState.project_info || {};
+            const sec = currentState.sections || {};
+            
+            let html = `<h2>${pi.title || '[USER INPUT REQUIRED]'}</h2>`;
+            html += `<p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">${pi.authors || '[USER INPUT REQUIRED]'} — ${pi.affiliations || ''}</p>`;
+            html += `<p><strong>Abstract</strong></p><p>${sec.abstract || '[USER INPUT REQUIRED]'}</p><br>`;
+            html += `<h4>Introduction</h4><p>${sec.introduction || '[USER INPUT REQUIRED]'}</p><br>`;
+            html += `<h4>Literature Review</h4><p>${sec.literature_review || '[USER INPUT REQUIRED]'}</p><br>`;
+            html += `<h4>Methodology</h4><p>${sec.methodology || '[USER INPUT REQUIRED]'}</p><br>`;
+            html += `<h4>Results & Discussion</h4><p>${sec.results || '[USER INPUT REQUIRED]'}</p><br>`;
+            html += `<h4>Conclusion</h4><p>${sec.conclusion || '[USER INPUT REQUIRED]'}</p><br>`;
+            
+            const style = pi.citation_style || 'IEEE';
+            html += `<h4>References</h4>`;
+            const refStrings = formattedRefs[style] || [];
+            if(refStrings.length) {
+                refStrings.forEach(str => {
+                    html += `<p style="margin-bottom:0.5rem;">${str}</p>`;
+                });
+            } else {
+                html += `<p>[USER INPUT REQUIRED]</p>`;
+            }
+            
+            p.innerHTML = html;
+        }
+
+        window.onload = fetchState;
+    </script>
+</body>
+</html>
